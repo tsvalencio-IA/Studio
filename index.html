@@ -39,14 +39,30 @@ header{
   align-items:center;
   background:#0A2540;
   position:relative;
+  overflow:hidden;
 }
 
 .stage.light{background:#fff}
 .stage.gradient{background:linear-gradient(135deg,#0A2540,#00AEEF)}
 
-#logo{
+.logoWrap{
+  position:relative;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+#logoBase, #logoOverlay{
   max-width:80%;
+  position:absolute;
   transition:0.2s;
+}
+
+#logoOverlay{
+  pointer-events:none;
+  mix-blend-mode:screen;
+  filter:saturate(3) contrast(1.2);
+  opacity:0;
 }
 
 .controls{
@@ -69,6 +85,13 @@ button{
   font-weight:bold;
 }
 
+#qrImg{
+  position:absolute;
+  bottom:10px;
+  right:10px;
+  width:80px;
+  display:none;
+}
 </style>
 </head>
 
@@ -80,8 +103,14 @@ button{
 
 <div class="preview">
   <div class="stage" id="stage">
-    <img src="assets/logo.png" id="logo">
-    <img id="qrImg" style="position:absolute;bottom:10px;right:10px;width:80px;display:none;">
+
+    <div class="logoWrap">
+      <img src="assets/logo.png" id="logoBase">
+      <img src="assets/logo.png" id="logoOverlay">
+    </div>
+
+    <img id="qrImg">
+
   </div>
 </div>
 
@@ -115,7 +144,7 @@ button{
 <label>Modo</label>
 <select onchange="state.mode=this.value;render()">
 <option value="normal">Normal</option>
-<option value="invert">Invertido</option>
+<option value="invert">Invertido (preserva IA)</option>
 <option value="mono">Mono</option>
 </select>
 
@@ -154,7 +183,8 @@ let state={
 function loadLogo(e){
   let file=e.target.files[0]
   state.logoSrc=URL.createObjectURL(file)
-  document.getElementById("logo").src=state.logoSrc
+  document.getElementById("logoBase").src=state.logoSrc
+  document.getElementById("logoOverlay").src=state.logoSrc
 }
 
 function setBG(v){
@@ -170,21 +200,36 @@ function setBG(v){
 function setQR(link){
   if(!link)return
   state.qr="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="+encodeURIComponent(link)
-  document.getElementById("qrImg").src=state.qr
-  document.getElementById("qrImg").style.display="block"
+  let q=document.getElementById("qrImg")
+  q.src=state.qr
+  q.style.display="block"
 }
 
 function render(){
-  let logo=document.getElementById("logo")
+
+  let base=document.getElementById("logoBase")
+  let overlay=document.getElementById("logoOverlay")
 
   let filter=`brightness(${state.brightness}%) contrast(${state.contrast}%) saturate(${state.saturate}%)`
 
-  if(state.mode==="invert") filter+=" invert(1)"
-  if(state.mode==="mono") filter+=" grayscale(1)"
+  if(state.mode==="invert"){
+    base.style.filter=filter+" invert(1)"
+    overlay.style.opacity=1
+  }
+  else if(state.mode==="mono"){
+    base.style.filter="grayscale(1) brightness(2)"
+    overlay.style.opacity=0
+  }
+  else{
+    base.style.filter=filter
+    overlay.style.opacity=0
+  }
 
-  logo.style.filter=filter
-  logo.style.maxWidth=state.scale+"%"
-  logo.style.transform=`rotate(${state.rotate}deg)`
+  base.style.maxWidth=state.scale+"%"
+  overlay.style.maxWidth=state.scale+"%"
+
+  base.style.transform=`rotate(${state.rotate}deg)`
+  overlay.style.transform=`rotate(${state.rotate}deg)`
 }
 
 function exportPNG(){
@@ -217,10 +262,11 @@ function exportPNG(){
 
   img.onload=()=>{
 
-    ctx.filter=`brightness(${state.brightness}%) contrast(${state.contrast}%) saturate(${state.saturate}%)`
+    let filter=`brightness(${state.brightness}%) contrast(${state.contrast}%) saturate(${state.saturate}%)`
+    if(state.mode==="invert") filter+=" invert(1)"
+    if(state.mode==="mono") filter="grayscale(1) brightness(2)"
 
-    if(state.mode==="invert") ctx.filter+=" invert(1)"
-    if(state.mode==="mono") ctx.filter+=" grayscale(1)"
+    ctx.filter=filter
 
     let scale=state.scale/100
     let lw=w*scale
@@ -231,6 +277,14 @@ function exportPNG(){
     ctx.rotate(state.rotate*Math.PI/180)
     ctx.drawImage(img,-lw/2,-lh/2,lw,lh)
     ctx.restore()
+
+    // overlay azul preservado
+    if(state.mode==="invert"){
+      ctx.filter="none"
+      ctx.globalCompositeOperation="screen"
+      ctx.drawImage(img,(w-lw)/2,(h-lh)/2,lw,lh)
+      ctx.globalCompositeOperation="source-over"
+    }
 
     if(state.qr){
       let qr=new Image()
