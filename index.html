@@ -50,12 +50,14 @@ header{
   display:flex;
   justify-content:center;
   align-items:center;
+  width:100%;
+  height:100%;
 }
 
 #logoBase, #logoOverlay{
   max-width:80%;
   position:absolute;
-  transition:0.2s;
+  display:block;
 }
 
 #logoOverlay{
@@ -127,22 +129,22 @@ button{
 </select>
 
 <label>Escala</label>
-<input type="range" min="20" max="120" value="80" oninput="state.scale=this.value;render()">
+<input type="range" min="20" max="120" value="80" oninput="update('scale',this.value)">
 
 <label>Rotação</label>
-<input type="range" min="-30" max="30" value="0" oninput="state.rotate=this.value;render()">
+<input type="range" min="-30" max="30" value="0" oninput="update('rotate',this.value)">
 
 <label>Brilho</label>
-<input type="range" min="50" max="200" value="100" oninput="state.brightness=this.value;render()">
+<input type="range" min="50" max="200" value="100" oninput="update('brightness',this.value)">
 
 <label>Contraste</label>
-<input type="range" min="50" max="200" value="100" oninput="state.contrast=this.value;render()">
+<input type="range" min="50" max="200" value="100" oninput="update('contrast',this.value)">
 
 <label>Saturação</label>
-<input type="range" min="0" max="200" value="100" oninput="state.saturate=this.value;render()">
+<input type="range" min="0" max="200" value="100" oninput="update('saturate',this.value)">
 
 <label>Modo</label>
-<select onchange="state.mode=this.value;render()">
+<select onchange="update('mode',this.value)">
 <option value="normal">Normal</option>
 <option value="invert">Invertido (preserva IA)</option>
 <option value="mono">Mono</option>
@@ -182,9 +184,11 @@ let state={
 
 function loadLogo(e){
   let file=e.target.files[0]
-  state.logoSrc=URL.createObjectURL(file)
-  document.getElementById("logoBase").src=state.logoSrc
-  document.getElementById("logoOverlay").src=state.logoSrc
+  if(!file)return
+  let url=URL.createObjectURL(file)
+  state.logoSrc=url
+  document.getElementById("logoBase").src=url
+  document.getElementById("logoOverlay").src=url
 }
 
 function setBG(v){
@@ -203,6 +207,11 @@ function setQR(link){
   let q=document.getElementById("qrImg")
   q.src=state.qr
   q.style.display="block"
+}
+
+function update(key,value){
+  state[key]=value
+  render()
 }
 
 function render(){
@@ -278,7 +287,6 @@ function exportPNG(){
     ctx.drawImage(img,-lw/2,-lh/2,lw,lh)
     ctx.restore()
 
-    // overlay azul preservado
     if(state.mode==="invert"){
       ctx.filter="none"
       ctx.globalCompositeOperation="screen"
